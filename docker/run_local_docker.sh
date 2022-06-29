@@ -18,6 +18,7 @@ cd docker/local-metadata
 echo "Starting Local Docker Containers"
 
 docker compose down && docker compose up --build -d
+echo "Starting Local Docker Containers sucess"
 
 until curl -s -f -o /dev/null "http://localhost:9200/_cat/indices/team_search_index"; do
   printf '.'

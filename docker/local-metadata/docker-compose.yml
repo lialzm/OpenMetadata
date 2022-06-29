@@ -36,6 +36,8 @@ services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:7.10.2
     container_name: openmetadata_elasticsearch
+    volumes:
+      - $PWD/plugins:/usr/share/elasticsearch/plugins
     environment:
       - discovery.type=single-node
       - ES_JAVA_OPTS=-Xms1024m -Xmx1024m
