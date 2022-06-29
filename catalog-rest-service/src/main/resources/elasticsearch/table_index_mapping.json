@@ -30,7 +30,9 @@
 			"description": {
 				"type": "text",
 				"index_options": "docs",
-				"norms": false
+				"norms": false,
+				"analyzer": "ik_max_word",
+			        "search_analyzer": "ik_smart"
 			},
 			"version": {
 				"type": "float"
@@ -59,7 +61,9 @@
 					"description": {
 						"type": "text",
 						"index_options": "docs",
-						"norms": false
+						"norms": false,
+						"analyzer": "ik_max_word",
+						"search_analyzer": "ik_smart"
 					},
 					"fullyQualifiedName": {
 						"type": "text"
@@ -73,7 +77,10 @@
 								"type": "keyword"
 							},
 							"description": {
-								"type": "text"
+								"type": "text",
+								"analyzer": "ik_max_word",
+								"search_analyzer": "ik_smart"
+
 							},
 							"source": {
 								"type": "keyword"
@@ -115,7 +122,9 @@
 						"type": "text"
 					},
 					"description": {
-						"type": "text"
+						"type": "text",
+						"analyzer": "ik_max_word",
+						"search_analyzer": "ik_smart"
 					},
 					"deleted": {
 						"type": "boolean"
@@ -152,7 +161,9 @@
 						"type": "text"
 					},
 					"description": {
-						"type": "text"
+						"type": "text",
+						"analyzer": "ik_max_word",
+						"search_analyzer": "ik_smart"
 					},
 					"deleted": {
 						"type": "boolean"
@@ -189,7 +200,9 @@
 						"type": "text"
 					},
 					"description": {
-						"type": "text"
+						"type": "text",
+						"analyzer": "ik_max_word",
+						"search_analyzer": "ik_smart"
 					},
 					"deleted": {
 						"type": "boolean"
@@ -226,7 +239,9 @@
 						"type": "text"
 					},
 					"description": {
-						"type": "text"
+						"type": "text",
+						"analyzer": "ik_max_word",
+						"search_analyzer": "ik_smart"
 					},
 					"deleted": {
 						"type": "boolean"
