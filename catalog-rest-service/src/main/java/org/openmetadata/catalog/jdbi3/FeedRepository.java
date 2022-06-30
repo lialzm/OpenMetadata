@@ -23,6 +23,7 @@ import static org.openmetadata.catalog.type.Relationship.CREATED;
 import static org.openmetadata.catalog.type.Relationship.IS_ABOUT;
 import static org.openmetadata.catalog.type.Relationship.REPLIED_TO;
 import static org.openmetadata.catalog.util.ChangeEventParser.getPlaintextDiff;
+import static org.openmetadata.catalog.util.EntityUtil.compareEntityReference;
 import static org.openmetadata.catalog.util.EntityUtil.populateEntityReferences;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -705,6 +706,11 @@ public class FeedRepository {
       throws IOException {
     // Get all the fields in the original thread that can be updated during PATCH operation
     Thread original = get(id.toString());
+    if (original.getTask() != null) {
+      List<EntityReference> assignees = original.getTask().getAssignees();
+      populateAssignees(original);
+      assignees.sort(compareEntityReference);
+    }
 
     // Apply JSON patch to the original thread to get the updated thread
     Thread updated = JsonUtils.applyPatch(original, patch, Thread.class);
@@ -714,12 +720,18 @@ public class FeedRepository {
     restorePatchAttributes(original, updated);
 
     if (!updated.getReactions().isEmpty()) {
+      populateUserReactions(updated.getReactions());
       updated
           .getReactions()
           .forEach(
               reaction -> {
                 storeReactions(updated, reaction.getUser().getName());
               });
+    }
+
+    if (updated.getTask() != null) {
+      populateAssignees(updated);
+      updated.getTask().getAssignees().sort(compareEntityReference);
     }
 
     // Update the attributes
