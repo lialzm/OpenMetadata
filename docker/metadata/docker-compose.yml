@@ -30,6 +30,8 @@ services:
   elasticsearch:
     container_name: openmetadata_elasticsearch
     image: docker.elastic.co/elasticsearch/elasticsearch:7.10.2
+    volumes:
+      - $PWD/plugins:/usr/share/elasticsearch/plugins
     environment:
       - discovery.type=single-node
       - ES_JAVA_OPTS=-Xms1024m -Xmx1024m
@@ -44,7 +46,7 @@ services:
   openmetadata-server:
     container_name: openmetadata_server
     restart: always
-    image: openmetadata/server:0.10.2
+    image: lialzm/openmetadata-server:latest
     environment:
       ELASTICSEARCH_HOST: elasticsearch
       # OpenMetadata Server Authentication Configuration
@@ -108,7 +110,7 @@ services:
 
   ingestion:
     container_name: openmetadata_ingestion
-    image: openmetadata/ingestion:0.10.2
+    image: lialzm/openmetadata-ingestion:latest
     depends_on:
       - mysql
     expose:

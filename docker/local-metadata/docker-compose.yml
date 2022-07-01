@@ -58,6 +58,7 @@ services:
       context: ../../.
       dockerfile: docker/local-metadata/Dockerfile
     container_name: openmetadata_server
+    image: lialzm/openmetadata-server
     environment:
       ELASTICSEARCH_HOST: elasticsearch
       # OpenMetadata Server Authentication Configuration
@@ -128,6 +129,7 @@ services:
       args:
         INGESTION_DEPENDENCY: ${INGESTION_DEPENDENCY:-all}
     container_name: openmetadata_ingestion
+    image: lialzm/openmetadata-ingestion
     depends_on:
       - mysql
       - elasticsearch
