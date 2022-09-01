@@ -54,7 +54,6 @@ import org.openmetadata.catalog.resources.EntityResourceTest;
 import org.openmetadata.catalog.resources.tags.TagResource.CategoryList;
 import org.openmetadata.catalog.type.TagCategory;
 import org.openmetadata.catalog.type.TagLabel;
-import org.openmetadata.catalog.type.TagLabel.Source;
 import org.openmetadata.catalog.util.EntityUtil;
 import org.openmetadata.catalog.util.FullyQualifiedName;
 import org.openmetadata.catalog.util.JsonUtils;
@@ -100,11 +99,7 @@ public class TagResourceTest extends CatalogApplicationTest {
   }
 
   private TagLabel getTagLabel(String tagName) throws HttpResponseException {
-    Tag tag = TagResourceTest.getTag(tagName, ADMIN_AUTH_HEADERS);
-    return new TagLabel()
-        .withTagFQN(tag.getFullyQualifiedName())
-        .withDescription(tag.getDescription())
-        .withSource(Source.TAG);
+    return EntityUtil.getTagLabel(TagResourceTest.getTag(tagName, ADMIN_AUTH_HEADERS));
   }
 
   @Test
@@ -278,7 +273,7 @@ public class TagResourceTest extends CatalogApplicationTest {
     // Long name
     create.withName(TestUtils.LONG_ENTITY_NAME).withCategoryType(TagCategoryType.Descriptive);
     assertResponseContains(
-        () -> createAndCheckCategory(create, ADMIN_AUTH_HEADERS), BAD_REQUEST, "name size must be between 2 and 25");
+        () -> createAndCheckCategory(create, ADMIN_AUTH_HEADERS), BAD_REQUEST, "name size must be between 2 and 64");
   }
 
   @Order(1)
@@ -318,13 +313,13 @@ public class TagResourceTest extends CatalogApplicationTest {
     assertResponseContains(
         () -> createPrimaryTag(USER_TAG_CATEGORY.getName(), create, ADMIN_AUTH_HEADERS),
         BAD_REQUEST,
-        "name size must be between 2 and 25");
+        "name size must be between 2 and 64");
 
     // Long secondary tag name
     assertResponseContains(
         () -> createSecondaryTag(USER_TAG_CATEGORY.getName(), ADDRESS_TAG.getName(), create, ADMIN_AUTH_HEADERS),
         BAD_REQUEST,
-        "name size must be between 2 and 25");
+        "name size must be between 2 and 64");
   }
 
   @Test
@@ -379,7 +374,7 @@ public class TagResourceTest extends CatalogApplicationTest {
     assertResponseContains(
         () -> updateCategory(USER_TAG_CATEGORY.getName(), create, ADMIN_AUTH_HEADERS),
         BAD_REQUEST,
-        "name size must be between 2 and 25");
+        "name size must be between 2 and 64");
   }
 
   @Test
@@ -422,7 +417,7 @@ public class TagResourceTest extends CatalogApplicationTest {
     assertResponseContains(
         () -> updatePrimaryTag(USER_TAG_CATEGORY.getName(), ADDRESS_TAG.getName(), create, ADMIN_AUTH_HEADERS),
         BAD_REQUEST,
-        "name size must be between 2 and 25");
+        "name size must be between 2 and 64");
 
     // Long secondary tag name
     assertResponseContains(
@@ -430,7 +425,7 @@ public class TagResourceTest extends CatalogApplicationTest {
             updateSecondaryTag(
                 USER_TAG_CATEGORY.getName(), ADDRESS_TAG.getName(), "Secondary", create, ADMIN_AUTH_HEADERS),
         BAD_REQUEST,
-        "name size must be between 2 and 25");
+        "name size must be between 2 and 64");
   }
 
   private TagCategory createAndCheckCategory(CreateTagCategory create, Map<String, String> authHeaders)

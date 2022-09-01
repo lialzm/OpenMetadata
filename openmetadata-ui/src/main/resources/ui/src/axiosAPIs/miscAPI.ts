@@ -64,6 +64,10 @@ export const fetchSandboxConfig = (): Promise<AxiosResponse> => {
   return APIClient.get('/config/sandbox');
 };
 
+export const fetchSlackConfig = (): Promise<AxiosResponse> => {
+  return APIClient.get('/config/slackChat');
+};
+
 export const fetchAirflowConfig = (): Promise<AxiosResponse> => {
   return APIClient.get('/config/airflow');
 };
@@ -215,4 +219,13 @@ export const getAdvancedFieldOptions = (
   const params = { index, field, q };
 
   return APIClient.get(`/search/suggest`, { params });
+};
+
+export const getEntityCount = (
+  path: string,
+  database?: string
+): Promise<AxiosResponse> => {
+  const params = { database, limit: 0 };
+
+  return APIClient.get(`/${path}`, { params });
 };

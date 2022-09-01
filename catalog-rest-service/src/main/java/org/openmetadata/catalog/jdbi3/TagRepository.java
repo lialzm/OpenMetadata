@@ -25,7 +25,7 @@ import org.openmetadata.catalog.Entity;
 import org.openmetadata.catalog.entity.tags.Tag;
 import org.openmetadata.catalog.resources.tags.TagResource;
 import org.openmetadata.catalog.type.Include;
-import org.openmetadata.catalog.type.TagLabel.Source;
+import org.openmetadata.catalog.type.TagLabel.TagSource;
 import org.openmetadata.catalog.util.EntityUtil.Fields;
 import org.openmetadata.catalog.util.FullyQualifiedName;
 import org.openmetadata.catalog.util.JsonUtils;
@@ -111,13 +111,19 @@ public class TagRepository extends EntityRepository<Tag> {
   }
 
   @Override
+  protected void postDelete(Tag entity) {
+    // Cleanup all the tag labels using this tag
+    daoCollection.tagUsageDAO().deleteTagLabels(TagSource.TAG.ordinal(), entity.getFullyQualifiedName());
+  }
+
+  @Override
   public Tag setFields(Tag tag, Fields fields) throws IOException {
     populateChildrenTags(tag, fields);
     return tag.withUsageCount(fields.contains("usageCount") ? getUsageCount(tag) : null);
   }
 
   private Integer getUsageCount(Tag tag) {
-    return daoCollection.tagUsageDAO().getTagCount(Source.TAG.ordinal(), tag.getFullyQualifiedName());
+    return daoCollection.tagUsageDAO().getTagCount(TagSource.TAG.ordinal(), tag.getFullyQualifiedName());
   }
 
   @Transaction
@@ -125,8 +131,8 @@ public class TagRepository extends EntityRepository<Tag> {
     Tag tag = get(uriInfo, id, Fields.EMPTY_FIELDS, Include.NON_DELETED);
     dao.delete(id);
     daoCollection.tagDAO().deleteTagsByPrefix(tag.getFullyQualifiedName());
-    daoCollection.tagUsageDAO().deleteTagLabels(Source.TAG.ordinal(), tag.getFullyQualifiedName());
-    daoCollection.tagUsageDAO().deleteTagLabelsByPrefix(Source.TAG.ordinal(), tag.getFullyQualifiedName());
+    daoCollection.tagUsageDAO().deleteTagLabels(TagSource.TAG.ordinal(), tag.getFullyQualifiedName());
+    daoCollection.tagUsageDAO().deleteTagLabelsByPrefix(TagSource.TAG.ordinal(), tag.getFullyQualifiedName());
     return tag;
   }
 

@@ -180,13 +180,11 @@ const ManageTab: FunctionComponent<ManageProps> = ({
   const getOwnerSuggestion = useCallback(
     (qSearchText = '') => {
       setIsUserLoading(true);
+      setListOwners([]);
       suggestFormattedUsersAndTeams(qSearchText)
         .then((res) => {
           const { users, teams } = res;
-          setListOwners(getOwnerList(users, teams));
-        })
-        .catch(() => {
-          setListOwners([]);
+          setListOwners(getOwnerList(users, teams, true));
         })
         .finally(() => {
           setIsUserLoading(false);
@@ -246,7 +244,7 @@ const ManageTab: FunctionComponent<ManageProps> = ({
             }
             isOwner={hasEditAccess || Boolean(owner && !currentUser)}
             key={i}
-            permission={Operation.UpdateTags}
+            permission={Operation.EditTags}
             position="left">
             <CardListItem
               card={card}
@@ -283,7 +281,7 @@ const ManageTab: FunctionComponent<ManageProps> = ({
     return (
       isAdminUser ||
       isAuthDisabled ||
-      userPermissions[Operation.UpdateTeam] ||
+      userPermissions[Operation.TeamEditUsers] ||
       !hasEditAccess
     );
   };

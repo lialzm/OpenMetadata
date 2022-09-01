@@ -27,7 +27,7 @@ import {
 import { Glossary } from '../../generated/entity/data/glossary';
 import { Operation } from '../../generated/entity/policies/policy';
 import { EntityReference } from '../../generated/type/entityReference';
-import { LabelType, Source, State } from '../../generated/type/tagLabel';
+import { LabelType, State, TagSource } from '../../generated/type/tagLabel';
 import { useAuth } from '../../hooks/authHooks';
 import jsonData from '../../jsons/en';
 import { getEntityName, hasEditAccess } from '../../utils/CommonUtils';
@@ -111,7 +111,7 @@ const GlossaryDetails = ({ isHasAccess, glossary, updateGlossary }: props) => {
         .map((tag) => ({
           labelType: LabelType.Manual,
           state: State.Confirmed,
-          source: Source.Tag,
+          source: TagSource.Tag,
           tagFQN: tag,
         }));
       const updatedTags = [...prevTags, ...newTags];
@@ -308,12 +308,12 @@ const GlossaryDetails = ({ isHasAccess, glossary, updateGlossary }: props) => {
         <NonAdminAction
           html={<p>{TITLE_FOR_UPDATE_OWNER}</p>}
           isOwner={isOwner()}
-          permission={Operation.UpdateOwner}
+          permission={Operation.EditOwner}
           position="left">
           <Button
             data-testid="owner-dropdown"
             disabled={
-              !userPermissions[Operation.UpdateOwner] &&
+              !userPermissions[Operation.EditOwner] &&
               !isAuthDisabled &&
               !hasEditAccess
             }
@@ -421,7 +421,7 @@ const GlossaryDetails = ({ isHasAccess, glossary, updateGlossary }: props) => {
         )}
         <NonAdminAction
           isOwner={Boolean(glossary.owner)}
-          permission={Operation.UpdateTags}
+          permission={Operation.EditTags}
           position="bottom"
           title={TITLE_FOR_NON_OWNER_ACTION}
           trigger="click">

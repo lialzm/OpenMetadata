@@ -69,6 +69,7 @@ import org.openmetadata.catalog.jdbi3.locator.ConnectionAwareSqlUpdate;
 import org.openmetadata.catalog.type.Relationship;
 import org.openmetadata.catalog.type.TagCategory;
 import org.openmetadata.catalog.type.TagLabel;
+import org.openmetadata.catalog.type.TaskStatus;
 import org.openmetadata.catalog.type.ThreadType;
 import org.openmetadata.catalog.type.UsageDetails;
 import org.openmetadata.catalog.type.UsageStats;
@@ -399,10 +400,11 @@ public interface CollectionDAO {
 
     // TODO delete this
     @SqlQuery(
-        "SELECT toId FROM entity_relationship "
+        "SELECT toId, toEntity, json FROM entity_relationship "
             + "WHERE fromId = :fromId AND fromEntity = :fromEntity AND relation = :relation AND toEntity = :toEntity "
             + "ORDER BY toId")
-    List<String> findTo(
+    @RegisterRowMapper(ToRelationshipMapper.class)
+    List<EntityRelationshipRecord> findTo(
         @Bind("fromId") String fromId,
         @Bind("fromEntity") String fromEntity,
         @Bind("relation") int relation,
@@ -423,10 +425,11 @@ public interface CollectionDAO {
     // Find from operations
     //
     @SqlQuery(
-        "SELECT fromId FROM entity_relationship "
+        "SELECT fromId, fromEntity, json FROM entity_relationship "
             + "WHERE toId = :toId AND toEntity = :toEntity AND relation = :relation AND fromEntity = :fromEntity "
             + "ORDER BY fromId")
-    List<String> findFrom(
+    @RegisterRowMapper(FromRelationshipMapper.class)
+    List<EntityRelationshipRecord> findFrom(
         @Bind("toId") String toId,
         @Bind("toEntity") String toEntity,
         @Bind("relation") int relation,
@@ -515,8 +518,10 @@ public interface CollectionDAO {
     @SqlQuery("SELECT json FROM thread_entity ORDER BY updatedAt DESC")
     List<String> list();
 
-    @SqlQuery("SELECT count(id) FROM thread_entity WHERE resolved = :resolved AND (:type IS NULL OR type = :type)")
-    int listCount(@Bind("resolved") boolean resolved, @Bind("type") ThreadType type);
+    @SqlQuery(
+        "SELECT count(id) FROM thread_entity WHERE resolved = :resolved "
+            + "AND (:type IS NULL OR type = :type) AND (:status IS NULL OR taskStatus = :status)")
+    int listCount(@Bind("status") TaskStatus status, @Bind("resolved") boolean resolved, @Bind("type") ThreadType type);
 
     @ConnectionAwareSqlUpdate(value = "UPDATE task_sequence SET id=LAST_INSERT_ID(id+1)", connectionType = MYSQL)
     @ConnectionAwareSqlUpdate(value = "UPDATE task_sequence SET id=(id+1) RETURNING id", connectionType = POSTGRES)
@@ -530,36 +535,40 @@ public interface CollectionDAO {
 
     @SqlQuery(
         "SELECT json FROM thread_entity "
-            + "WHERE updatedAt > :before AND resolved = :resolved AND (:type IS NULL OR type = :type) "
+            + "WHERE updatedAt > :before AND resolved = :resolved "
+            + "AND (:type IS NULL OR type = :type) AND (:status IS NULL OR taskStatus = :status) "
             + "ORDER BY updatedAt DESC "
             + "LIMIT :limit")
     List<String> listBefore(
         @Bind("limit") int limit,
         @Bind("before") long before,
+        @Bind("status") TaskStatus status,
         @Bind("resolved") boolean resolved,
         @Bind("type") ThreadType type);
 
     @SqlQuery(
         "SELECT json FROM thread_entity "
-            + "WHERE updatedAt < :after AND resolved = :resolved AND (:type IS NULL OR type = :type) "
+            + "WHERE updatedAt < :after AND resolved = :resolved "
+            + "AND (:type IS NULL OR type = :type) AND (:status IS NULL OR taskStatus = :status) "
             + "ORDER BY updatedAt DESC "
             + "LIMIT :limit")
     List<String> listAfter(
         @Bind("limit") int limit,
         @Bind("after") long after,
+        @Bind("status") TaskStatus status,
         @Bind("resolved") boolean resolved,
         @Bind("type") ThreadType type);
 
     @ConnectionAwareSqlQuery(
         value =
-            "SELECT json FROM thread_entity WHERE updatedAt > :before AND taskStatus = :status AND "
+            "SELECT json FROM thread_entity WHERE type='Task' AND updatedAt > :before AND taskStatus = :status AND "
                 + "taskAssignees @> ANY (ARRAY[<userTeamJsonPostgres>]::jsonb[]) "
                 + "ORDER BY updatedAt DESC "
                 + "LIMIT :limit",
         connectionType = POSTGRES)
     @ConnectionAwareSqlQuery(
         value =
-            "SELECT json FROM thread_entity WHERE updatedAt > :before AND taskStatus = :status AND "
+            "SELECT json FROM thread_entity WHERE type='Task' AND updatedAt > :before AND taskStatus = :status AND "
                 + "JSON_OVERLAPS(taskAssignees, :userTeamJsonMysql) "
                 + "ORDER BY updatedAt DESC "
                 + "LIMIT :limit",
@@ -569,19 +578,21 @@ public interface CollectionDAO {
         @Bind("userTeamJsonMysql") String userTeamJsonMysql,
         @Bind("limit") int limit,
         @Bind("before") long before,
-        @Bind("status") String status);
+        @Bind("status") TaskStatus status);
 
     @ConnectionAwareSqlQuery(
         value =
-            "SELECT json FROM thread_entity WHERE updatedAt < :after AND taskStatus = :status AND "
-                + "taskAssignees @> ANY (ARRAY[<userTeamJsonPostgres>]::jsonb[]) "
+            "SELECT json FROM thread_entity WHERE type='Task' AND updatedAt < :after "
+                + "AND (:status IS NULL OR taskStatus = :status) "
+                + "AND taskAssignees @> ANY (ARRAY[<userTeamJsonPostgres>]::jsonb[]) "
                 + "ORDER BY updatedAt DESC "
                 + "LIMIT :limit",
         connectionType = POSTGRES)
     @ConnectionAwareSqlQuery(
         value =
-            "SELECT json FROM thread_entity WHERE updatedAt < :after AND taskStatus = :status AND "
-                + "JSON_OVERLAPS(taskAssignees, :userTeamJsonMysql) "
+            "SELECT json FROM thread_entity WHERE type='Task' AND updatedAt < :after "
+                + "AND (:status IS NULL OR taskStatus = :status) "
+                + "AND JSON_OVERLAPS(taskAssignees, :userTeamJsonMysql) "
                 + "ORDER BY updatedAt DESC "
                 + "LIMIT :limit",
         connectionType = MYSQL)
@@ -590,47 +601,53 @@ public interface CollectionDAO {
         @Bind("userTeamJsonMysql") String userTeamJsonMysql,
         @Bind("limit") int limit,
         @Bind("after") long after,
-        @Bind("status") String status);
+        @Bind("status") TaskStatus status);
 
     @ConnectionAwareSqlQuery(
         value =
-            "SELECT count(id) FROM thread_entity WHERE taskStatus = :status AND "
+            "SELECT count(id) FROM thread_entity WHERE type='Task' AND "
+                + "(:status IS NULL OR taskStatus = :status) AND "
                 + "taskAssignees @> ANY (ARRAY[<userTeamJsonPostgres>]::jsonb[])",
         connectionType = POSTGRES)
     @ConnectionAwareSqlQuery(
         value =
-            "SELECT count(id) FROM thread_entity WHERE taskStatus = :status AND "
+            "SELECT count(id) FROM thread_entity WHERE "
+                + "(:status IS NULL OR taskStatus = :status) AND "
                 + "JSON_OVERLAPS(taskAssignees, :userTeamJsonMysql) ",
         connectionType = MYSQL)
     int listCountTasksAssignedTo(
         @BindList("userTeamJsonPostgres") List<String> userTeamJsonPostgres,
         @Bind("userTeamJsonMysql") String userTeamJsonMysql,
-        @Bind("status") String status);
+        @Bind("status") TaskStatus status);
 
     @SqlQuery(
-        "SELECT json FROM thread_entity WHERE updatedAt > :before AND taskStatus = :status AND "
-            + "createdBy = :username "
+        "SELECT json FROM thread_entity WHERE type='Task' AND updatedAt > :before "
+            + "AND (:status IS NULL OR taskStatus = :status) "
+            + "AND createdBy = :username "
             + "ORDER BY updatedAt DESC "
             + "LIMIT :limit")
     List<String> listTasksAssignedByBefore(
         @Bind("username") String username,
         @Bind("limit") int limit,
         @Bind("before") long before,
-        @Bind("status") String status);
+        @Bind("status") TaskStatus status);
 
     @SqlQuery(
-        "SELECT json FROM thread_entity WHERE updatedAt < :after AND taskStatus = :status AND "
-            + "createdBy = :username "
+        "SELECT json FROM thread_entity WHERE type='Task' AND updatedAt < :after "
+            + "AND (:status IS NULL OR taskStatus = :status) "
+            + "AND createdBy = :username "
             + "ORDER BY updatedAt DESC "
             + "LIMIT :limit")
     List<String> listTasksAssignedByAfter(
         @Bind("username") String username,
         @Bind("limit") int limit,
         @Bind("after") long after,
-        @Bind("status") String status);
+        @Bind("status") TaskStatus status);
 
-    @SqlQuery("SELECT count(id) FROM thread_entity WHERE taskStatus = :status AND " + "createdBy = :username")
-    int listCountTasksAssignedBy(@Bind("username") String username, @Bind("status") String status);
+    @SqlQuery(
+        "SELECT count(id) FROM thread_entity WHERE type='Task' "
+            + "AND (:status IS NULL OR taskStatus = :status) AND createdBy = :username")
+    int listCountTasksAssignedBy(@Bind("username") String username, @Bind("status") TaskStatus status);
 
     @SqlQuery(
         "SELECT json FROM thread_entity WHERE updatedAt > :before AND resolved = :resolved AND (:type IS NULL OR type = :type) AND "
@@ -677,10 +694,11 @@ public interface CollectionDAO {
         @Bind("resolved") boolean resolved);
 
     @SqlQuery(
-        "SELECT json FROM thread_entity WHERE updatedAt > :before AND resolved = :resolved AND (:type IS NULL OR type = :type) AND "
-            + "id in (SELECT fromFQN FROM field_relationship WHERE "
-            + "(toFQN LIKE CONCAT(:fqnPrefix, '.%') OR toFQN=:fqnPrefix) AND fromType='THREAD' AND "
-            + "(toType LIKE CONCAT(:toType, '.%') OR toType=:toType) AND relation= :relation) "
+        "SELECT json FROM thread_entity WHERE updatedAt > :before AND resolved = :resolved "
+            + "AND (:type IS NULL OR type = :type) "
+            + "AND id in (SELECT fromFQN FROM field_relationship WHERE "
+            + "(:fqnPrefix IS NULL OR toFQN LIKE CONCAT(:fqnPrefix, '.%') OR toFQN=:fqnPrefix) AND fromType='THREAD' AND "
+            + "(:toType IS NULL OR toType LIKE CONCAT(:toType, '.%') OR toType=:toType) AND relation= :relation) "
             + "ORDER BY updatedAt DESC "
             + "LIMIT :limit")
     List<String> listThreadsByEntityLinkBefore(
@@ -689,15 +707,17 @@ public interface CollectionDAO {
         @Bind("limit") int limit,
         @Bind("before") long before,
         @Bind("type") ThreadType type,
+        @Bind("status") TaskStatus status,
         @Bind("resolved") boolean resolved,
         @Bind("relation") int relation);
 
     @SqlQuery(
-        "SELECT json FROM thread_entity WHERE updatedAt < :after AND resolved = :resolved AND "
-            + "(:type IS NULL OR type = :type) AND "
-            + "id in (SELECT fromFQN FROM field_relationship WHERE "
-            + "(toFQN LIKE CONCAT(:fqnPrefix, '.%') OR toFQN=:fqnPrefix) AND fromType='THREAD' AND "
-            + "(toType LIKE CONCAT(:toType, '.%') OR toType=:toType) AND relation= :relation) "
+        "SELECT json FROM thread_entity WHERE updatedAt < :after AND resolved = :resolved "
+            + "AND (:status IS NULL OR taskStatus = :status) "
+            + "AND (:type IS NULL OR type = :type) "
+            + "AND id in (SELECT fromFQN FROM field_relationship WHERE "
+            + "(:fqnPrefix IS NULL OR toFQN LIKE CONCAT(:fqnPrefix, '.%') OR toFQN=:fqnPrefix) AND fromType='THREAD' AND "
+            + "(:toType IS NULL OR toType LIKE CONCAT(:toType, '.%') OR toType=:toType) AND relation= :relation) "
             + "ORDER BY updatedAt DESC "
             + "LIMIT :limit")
     List<String> listThreadsByEntityLinkAfter(
@@ -706,19 +726,22 @@ public interface CollectionDAO {
         @Bind("limit") int limit,
         @Bind("after") long after,
         @Bind("type") ThreadType type,
+        @Bind("status") TaskStatus status,
         @Bind("resolved") boolean resolved,
         @Bind("relation") int relation);
 
     @SqlQuery(
-        "SELECT count(id) FROM thread_entity WHERE resolved = :resolved AND "
-            + "(:type IS NULL OR type = :type) AND "
-            + "id in (SELECT fromFQN FROM field_relationship WHERE "
-            + "(toFQN LIKE CONCAT(:fqnPrefix, '.%') OR toFQN=:fqnPrefix) AND fromType='THREAD' AND "
-            + "(toType LIKE CONCAT(:toType, '.%') OR toType=:toType) AND relation= :relation)")
+        "SELECT count(id) FROM thread_entity WHERE resolved = :resolved "
+            + "AND (:status IS NULL OR taskStatus = :status) "
+            + "AND (:type IS NULL OR type = :type) "
+            + "AND id in (SELECT fromFQN FROM field_relationship WHERE "
+            + "(:fqnPrefix IS NULL OR toFQN LIKE CONCAT(:fqnPrefix, '.%') OR toFQN=:fqnPrefix) AND fromType='THREAD' AND "
+            + "(:toType IS NULL OR toType LIKE CONCAT(:toType, '.%') OR toType=:toType) AND relation= :relation)")
     int listCountThreadsByEntityLink(
         @Bind("fqnPrefix") String fqnPrefix,
         @Bind("toType") String toType,
         @Bind("type") ThreadType type,
+        @Bind("status") TaskStatus status,
         @Bind("resolved") boolean resolved,
         @Bind("relation") int relation);
 
@@ -730,9 +753,10 @@ public interface CollectionDAO {
 
     @SqlQuery(
         "SELECT entityLink, COUNT(id) count FROM field_relationship fr INNER JOIN thread_entity te ON fr.fromFQN=te.id "
-            + "WHERE (fr.toFQN LIKE CONCAT(:fqnPrefix, '.%') OR fr.toFQN=:fqnPrefix) AND "
-            + "(fr.toType like concat(:toType, '.%') OR fr.toType=:toType)AND fr.fromType = :fromType "
-            + "AND fr.relation = :relation AND te.resolved= :isResolved AND (:type IS NULL OR te.type = :type) "
+            + "WHERE (:fqnPrefix IS NULL OR fr.toFQN LIKE CONCAT(:fqnPrefix, '.%') OR fr.toFQN=:fqnPrefix) AND "
+            + "(:toType IS NULL OR fr.toType like concat(:toType, '.%') OR fr.toType=:toType) AND fr.fromType = :fromType "
+            + "AND fr.relation = :relation AND te.resolved= :isResolved AND (:status IS NULL OR te.taskStatus = :status) "
+            + "AND (:type IS NULL OR te.type = :type) "
             + "GROUP BY entityLink")
     @RegisterRowMapper(CountFieldMapper.class)
     List<List<String>> listCountByEntityLink(
@@ -741,6 +765,7 @@ public interface CollectionDAO {
         @Bind("toType") String toType,
         @Bind("relation") int relation,
         @Bind("type") ThreadType type,
+        @Bind("status") TaskStatus status,
         @Bind("isResolved") boolean isResolved);
 
     @SqlQuery(
@@ -759,11 +784,13 @@ public interface CollectionDAO {
 
     @SqlQuery(
         "SELECT entityLink, COUNT(id) count FROM thread_entity WHERE (id IN (<threadIds>)) "
-            + "AND resolved= :isResolved AND (:type IS NULL OR type = :type) GROUP BY entityLink")
+            + "AND resolved= :isResolved AND (:type IS NULL OR type = :type) "
+            + "AND (:status IS NULL OR taskStatus = :status) GROUP BY entityLink")
     @RegisterRowMapper(CountFieldMapper.class)
     List<List<String>> listCountByThreads(
         @BindList("threadIds") List<String> threadIds,
         @Bind("type") ThreadType type,
+        @Bind("status") TaskStatus status,
         @Bind("isResolved") boolean isResolved);
 
     @SqlQuery(
@@ -1447,7 +1474,7 @@ public interface CollectionDAO {
         String description1 = r.getString("description1");
         String description2 = r.getString("description2");
         return new TagLabel()
-            .withSource(TagLabel.Source.values()[r.getInt("source")])
+            .withSource(TagLabel.TagSource.values()[r.getInt("source")])
             .withLabelType(TagLabel.LabelType.values()[r.getInt("labelType")])
             .withState(TagLabel.State.values()[r.getInt("state")])
             .withTagFQN(r.getString("tagFQN"))
