@@ -36,6 +36,7 @@ from metadata.ingestion.ometa.client import APIError
 from metadata.ingestion.ometa.ometa_api import OpenMetadata
 from metadata.utils import fqn
 from metadata.utils.logger import ingestion_logger
+from metadata.utils.lru_cache import LRUCache
 from metadata.utils.sql_lineage import (
     get_column_fqn,
     get_lineage_by_query,
@@ -43,6 +44,8 @@ from metadata.utils.sql_lineage import (
 )
 
 logger = ingestion_logger()
+
+LRU_CACHE_SIZE = 4096
 
 
 class MetadataUsageSinkConfig(ConfigModel):
@@ -85,8 +88,11 @@ class MetadataUsageBulkSink(BulkSink):
             for query in queries
             if "create" in query.query.lower() or "insert" in query.query.lower()
         ]
+        seen_queries = LRUCache(LRU_CACHE_SIZE)
 
         for query in create_or_insert_queries:
+            if query in seen_queries:
+                continue
             lineages = get_lineage_by_query(
                 self.metadata,
                 query=query,
@@ -97,6 +103,7 @@ class MetadataUsageBulkSink(BulkSink):
             for lineage in lineages or []:
                 created_lineage = self.metadata.add_lineage(lineage)
                 logger.info(f"Successfully added Lineage {created_lineage}")
+            seen_queries.put(query, None)  # None because it really doesn't matter.
 
     def __populate_table_usage_map(
         self, table_entity: Table, table_usage: TableUsageCount
@@ -146,11 +153,13 @@ class MetadataUsageBulkSink(BulkSink):
                 )
                 logger.info(
                     "Successfully table usage published for {}".format(
-                        value_dict["table_entity"].name.__root__
+                        value_dict["table_entity"].fullyQualifiedName.__root__
                     )
                 )
                 self.status.records_written(
-                    "Table: {}".format(value_dict["table_entity"].name.__root__)
+                    "Table: {}".format(
+                        value_dict["table_entity"].fullyQualifiedName.__root__
+                    )
                 )
             except ValidationError as err:
                 logger.error(
@@ -160,11 +169,13 @@ class MetadataUsageBulkSink(BulkSink):
                 self.status.failures.append(table_usage_request)
                 logger.error(
                     "Failed to update usage for {} {}".format(
-                        value_dict["table_entity"].name.__root__, err
+                        value_dict["table_entity"].fullyQualifiedName.__root__, err
                     )
                 )
                 self.status.failures.append(
-                    "Table: {}".format(value_dict["table_entity"].name.__root__)
+                    "Table: {}".format(
+                        value_dict["table_entity"].fullyQualifiedName.__root__
+                    )
                 )
 
     def iterate_files(self):
@@ -259,12 +270,12 @@ class MetadataUsageBulkSink(BulkSink):
     def __get_table_joins(
         self, table_entity: Table, table_usage: TableUsageCount
     ) -> TableJoins:
-        table_joins: TableJoins = TableJoins(
-            columnJoins=[], directTableJoins=[], startDate=table_usage.date
-        )
         """
         Method to get Table Joins
         """
+        table_joins: TableJoins = TableJoins(
+            columnJoins=[], directTableJoins=[], startDate=table_usage.date
+        )
         column_joins_dict = {}
         for column_join in table_usage.joins:
             joined_with = {}

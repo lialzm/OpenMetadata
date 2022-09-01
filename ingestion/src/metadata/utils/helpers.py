@@ -25,6 +25,7 @@ from metadata.generated.schema.api.services.createStorageService import (
     CreateStorageServiceRequest,
 )
 from metadata.generated.schema.entity.data.chart import Chart, ChartType
+from metadata.generated.schema.entity.data.table import Column, Table
 from metadata.generated.schema.entity.services.dashboardService import DashboardService
 from metadata.generated.schema.entity.services.databaseService import DatabaseService
 from metadata.generated.schema.entity.services.messagingService import MessagingService
@@ -200,11 +201,11 @@ def get_storage_service_or_create(service_json, metadata_config) -> StorageServi
         return created_service
 
 
-def datetime_to_ts(date: datetime) -> int:
+def datetime_to_ts(date: Optional[datetime]) -> Optional[int]:
     """
     Convert a given date to a timestamp as an Int in milliseconds
     """
-    return int(date.timestamp() * 1_000)
+    return int(date.timestamp() * 1_000) if date else None
 
 
 def get_formatted_entity_name(name: str) -> Optional[str]:
@@ -270,3 +271,26 @@ def find_in_list(element: Any, container: Iterable[Any]) -> Optional[Any]:
     :return: element or None
     """
     return next(iter([elem for elem in container if elem == element]), None)
+
+
+def find_column_in_table(column_name: str, table: Table) -> Optional[Column]:
+    """
+    If the column exists in the table, return it
+    """
+    return next(
+        (col for col in table.columns if col.name.__root__ == column_name), None
+    )
+
+
+def list_to_dict(original: Optional[List[str]], sep: str = "=") -> Dict[str, str]:
+    """
+    Given a list with strings that have a separator,
+    convert that to a dictionary of key-value pairs
+    """
+    if not original:
+        return {}
+
+    split_original = [
+        (elem.split(sep)[0], elem.split(sep)[1]) for elem in original if sep in elem
+    ]
+    return dict(split_original)

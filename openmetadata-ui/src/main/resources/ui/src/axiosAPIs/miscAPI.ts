@@ -143,6 +143,26 @@ export const getUserSuggestions: Function = (
 
   return APIClient.get(`/search/suggest`, { params });
 };
+
+export const getTeamsByQuery = async (params: {
+  q: string;
+  from?: number;
+  size?: number;
+}) => {
+  const response = await APIClient.get(`/search/query`, {
+    params: {
+      index: SearchIndex.TEAM,
+      ...params,
+      // eslint-disable-next-line @typescript-eslint/camelcase
+      sort_field: 'name.keyword',
+      // eslint-disable-next-line @typescript-eslint/camelcase
+      sort_order: 'asc',
+    },
+  });
+
+  return response.data;
+};
+
 export const getTagSuggestions: Function = (
   term: string
 ): Promise<AxiosResponse> => {

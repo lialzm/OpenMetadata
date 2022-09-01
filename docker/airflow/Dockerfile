@@ -2,12 +2,13 @@ FROM apache/airflow:2.1.4-python3.9
 USER root
 RUN apt-get update \
     && apt-get install -y \
-        gcc libsasl2-dev build-essential libssl-dev libffi-dev \
-        librdkafka-dev unixodbc-dev libevent-dev --no-install-recommends \
+        gcc libsasl2-modules libsasl2-dev build-essential libssl-dev libffi-dev \
+        librdkafka-dev unixodbc-dev openjdk-11-jre unixodbc freetds-dev freetds-bin \
+        tdsodbc libevent-dev --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 USER airflow
 # Download openmetadata airflow plugins
-RUN curl -LJO https://github.com/open-metadata/OpenMetadata/releases/download/0.11.1-release/openmetadata-airflow-apis-plugins.tar.gz && \
+RUN curl -LJO https://github.com/open-metadata/OpenMetadata/releases/download/0.11.5-release/openmetadata-airflow-apis-plugins.tar.gz && \
     tar xzf openmetadata-airflow-apis-plugins.tar.gz && rm -rf openmetadata-airflow-apis-plugins.tar.gz
 # Argument to provide for Ingestion Dependencies to install. Defaults to all
 ARG INGESTION_DEPENDENCY="all"

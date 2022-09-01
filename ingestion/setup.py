@@ -101,7 +101,7 @@ plugins: Dict[str, Set[str]] = {
     "pymssql": {"pymssql~=2.2.5"},
     "mssql-odbc": {"pyodbc"},
     "mysql": {"pymysql>=1.0.2"},
-    "oracle": {"cx_Oracle"},
+    "oracle": {"cx_Oracle", "oracledb==1.0.3"},
     "powerbi": {"msal==1.17.0"},
     "presto": {"pyhive~=0.6.3"},
     "trino": {"trino[sqlalchemy]"},
@@ -161,7 +161,7 @@ test = {
 build_options = {"includes": ["_cffi_backend"]}
 setup(
     name="openmetadata-ingestion",
-    version="0.11.1.1",
+    version="0.11.5.3",
     url="https://open-metadata.org/",
     author="OpenMetadata Committers",
     license="Apache License 2.0",

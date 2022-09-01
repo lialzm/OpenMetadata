@@ -442,6 +442,29 @@ public class IngestionPipelineResource extends EntityResource<IngestionPipeline,
   }
 
   @POST
+  @Path("/kill/{id}")
+  @Operation(
+      operationId = "killIngestionPipelineRuns",
+      summary = "Mark as failed and kill any not-finished workflow or task for the IngestionPipeline",
+      tags = "IngestionPipelines",
+      description = "Kill an ingestion pipeline by ID.",
+      responses = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "The ingestion",
+            content =
+                @Content(mediaType = "application/json", schema = @Schema(implementation = IngestionPipeline.class))),
+        @ApiResponse(responseCode = "404", description = "Ingestion for instance {id} is not found")
+      })
+  public Response killIngestion(
+      @Context UriInfo uriInfo, @PathParam("id") String id, @Context SecurityContext securityContext)
+      throws IOException {
+    IngestionPipeline ingestionPipeline = getInternal(uriInfo, securityContext, id, FIELDS, Include.NON_DELETED);
+    HttpResponse<String> response = pipelineServiceClient.killIngestion(ingestionPipeline);
+    return Response.status(200, response.body()).build();
+  }
+
+  @POST
   @Path("/testConnection")
   @Operation(
       operationId = "testConnection",
@@ -521,7 +544,8 @@ public class IngestionPipelineResource extends EntityResource<IngestionPipeline,
       @Context SecurityContext securityContext,
       @Parameter(description = "Pipeline Id", schema = @Schema(type = "string")) @PathParam("id") String id)
       throws IOException {
-    Map<String, String> lastIngestionLogs = pipelineServiceClient.getLastIngestionLogs(id);
+    IngestionPipeline ingestionPipeline = getInternal(uriInfo, securityContext, id, FIELDS, Include.NON_DELETED);
+    Map<String, String> lastIngestionLogs = pipelineServiceClient.getLastIngestionLogs(ingestionPipeline);
     return Response.ok(lastIngestionLogs, MediaType.APPLICATION_JSON_TYPE).build();
   }
 

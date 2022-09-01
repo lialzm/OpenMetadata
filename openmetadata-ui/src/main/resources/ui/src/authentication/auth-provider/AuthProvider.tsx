@@ -109,11 +109,13 @@ export const AuthProvider = ({
   let silentSignInRetries = 0;
 
   const onLoginHandler = () => {
+    setLoading(true);
     authenticatorRef.current?.invokeLogin();
   };
 
   const onLogoutHandler = () => {
     authenticatorRef.current?.invokeLogout();
+    setLoading(false);
   };
 
   const onRenewIdTokenHandler = () => {
@@ -157,6 +159,7 @@ export const AuthProvider = ({
     localStorage.removeItem(oidcTokenKey);
     setIsUserAuthenticated(false);
     setLoadingIndicator(false);
+    clearTimeout(Number(timeoutId));
     if (forceLogout) {
       onLogoutHandler();
     } else {
@@ -348,11 +351,13 @@ export const AuthProvider = ({
   const handleFailedLogin = () => {
     setIsSigningIn(false);
     setIsUserAuthenticated(false);
+    setLoading(false);
     history.push(ROUTES.SIGNIN);
   };
 
   const handleSuccessfulLogin = (user: OidcUser) => {
     setLoading(true);
+    setIsUserAuthenticated(true);
     getUserByName(getNameFromEmail(user.profile.email), userAPIQueryFields)
       .then((res: AxiosResponse) => {
         if (res.data) {
@@ -556,6 +561,7 @@ export const AuthProvider = ({
           <MsalProvider instance={msalInstance}>
             <MsalAuthenticator
               ref={authenticatorRef}
+              onLoginFailure={handleFailedLogin}
               onLoginSuccess={handleSuccessfulLogin}
               onLogoutSuccess={handleSuccessfulLogout}>
               {children}
